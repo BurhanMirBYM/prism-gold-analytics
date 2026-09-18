@@ -1,3 +1,10 @@
+## Author
+Developed by **Burhan Mir** — Data Analyst / Software Developer
+
+### My Key Learnings & Architecture Decisions
+- Designed a star-schema relational database in SQLite (`customers`, `products`, `orders`, `order_items`).
+- Implemented `NTILE(4)` window functions for RFM customer segmentation.
+- Built a live multi-source API connector (GoldAPI & Yahoo Finance) auto-polling live XAU spot rates into SQLite ticks.
 # PRISM Gold — Live Gold Price Analytics & SQL Tracking Dashboard
 
 A real-time, working Gold Price Analytics tool & SQL Tracking dashboard built with Python/Flask, SQLite, Chart.js, and Live Market API Feeds (GoldAPI & Google / Yahoo Finance).
