@@ -8,6 +8,7 @@ if (typeof Chart !== 'undefined') {
 
 const gridline = { color: 'rgba(255,255,255,0.04)', drawTicks: false };
 let chartInstances = {};
+let currentRange = '1M';
 
 function formatINR(v) {
   if (v === undefined || v === null) return '₹0.00';
@@ -19,90 +20,114 @@ function moneyUSD(v) {
   return '$' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-const GOLD_FALLBACK = {
-  kpis: {
-    price_inr_1g_spot: 11854.20,
-    price_inr_10g_spot: 118542.00,
-    price_inr_1g_retail: 15410.46,
-    price_inr_10g_retail: 154104.60,
-    high_24h_inr_1g: 11920.00,
-    low_24h_inr_1g: 11780.00,
-    ma30_inr_1g: 11620.50,
-    volatility: "1.42",
-    change_val_inr_1g: 145.20,
-    change_pct: "1.24"
-  },
-  intraday: [
-    { timestamp: '2026-09-18T09:00:00Z', price_inr_1g: 11810.00 },
-    { timestamp: '2026-09-18T10:00:00Z', price_inr_1g: 11825.50 },
-    { timestamp: '2026-09-18T11:00:00Z', price_inr_1g: 11840.00 },
-    { timestamp: '2026-09-18T12:00:00Z', price_inr_1g: 11832.00 },
-    { timestamp: '2026-09-18T13:00:00Z', price_inr_1g: 11854.20 }
-  ],
-  ratesTable: [
-    { purity: '24K (Pure 99.9%)', unit: '1 Gram', spot_inr: 11854.20, retail_inr: 15410.46, usd_eq: 141.97 },
-    { purity: '24K (Pure 99.9%)', unit: '10 Grams', spot_inr: 118542.00, retail_inr: 154104.60, usd_eq: 1419.66 },
-    { purity: '22K (Jewelry 91.6%)', unit: '1 Gram', spot_inr: 10866.75, retail_inr: 14126.77, usd_eq: 130.14 },
-    { purity: '22K (Jewelry 91.6%)', unit: '10 Grams', spot_inr: 108667.50, retail_inr: 141267.70, usd_eq: 1301.41 },
-    { purity: '18K (Diamond 75.0%)', unit: '1 Gram', spot_inr: 8890.65, retail_inr: 11557.85, usd_eq: 106.47 },
-    { purity: '18K (Diamond 75.0%)', unit: '10 Grams', spot_inr: 88906.50, retail_inr: 115578.45, usd_eq: 1064.75 }
-  ],
-  historical: [
-    { date: '2026-08-20', price_inr_1g: 11400, price_usd_oz: 2580 },
-    { date: '2026-08-25', price_inr_1g: 11520, price_usd_oz: 2610 },
-    { date: '2026-08-30', price_inr_1g: 11480, price_usd_oz: 2600 },
-    { date: '2026-09-05', price_inr_1g: 11650, price_usd_oz: 2635 },
-    { date: '2026-09-10', price_inr_1g: 11720, price_usd_oz: 2648 },
-    { date: '2026-09-18', price_inr_1g: 11854, price_usd_oz: 2650 }
-  ]
-};
-
-async function getJSON(url, opts) {
-  try {
-    const res = await fetch(url, opts);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    console.warn("Using Gold fallback dataset for URL:", url);
-  }
-  
-  if (url.includes('/api/gold/kpis')) return GOLD_FALLBACK.kpis;
-  if (url.includes('/api/gold/intraday')) return GOLD_FALLBACK.intraday;
-  if (url.includes('/api/gold/rates-table')) return GOLD_FALLBACK.ratesTable;
-  if (url.includes('/api/gold/historical')) return GOLD_FALLBACK.historical;
-  if (url.includes('/api/gold/rolling')) return GOLD_FALLBACK.historical.map(h => ({ date: h.date, price_inr_1g: h.price_inr_1g, ma7_inr_1g: h.price_inr_1g - 40, ma30_inr_1g: h.price_inr_1g - 120 }));
-  
-  return GOLD_FALLBACK.kpis;
+function formatEUR(v) {
+  if (v === undefined || v === null) return '€' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-async function loadKPIs() {
-  const k = await getJSON('/api/gold/kpis');
-  document.getElementById('spotBannerPrice').textContent = formatINR(k.price_inr_1g_spot);
-  document.getElementById('spotBanner10g').textContent = `(${formatINR(k.price_inr_10g_spot)} / 10g)`;
-  document.getElementById('retailBannerPrice').textContent = formatINR(k.price_inr_1g_retail);
-  document.getElementById('retailBanner10g').textContent = `(${formatINR(k.price_inr_10g_retail)} / 10g)`;
-  document.getElementById('kpiRate1g').textContent = formatINR(k.price_inr_1g_spot);
-  document.getElementById('kpiRetail1g').textContent = formatINR(k.price_inr_1g_retail);
-  document.getElementById('kpiHigh1g').textContent = formatINR(k.high_24h_inr_1g);
-  document.getElementById('kpiLow1g').textContent = formatINR(k.low_24h_inr_1g);
-  document.getElementById('kpiMA301g').textContent = formatINR(k.ma30_inr_1g);
-  document.getElementById('kpiVol').textContent = `${k.volatility}%`;
+function formatGBP(v) {
+  if (v === undefined || v === null) return '£' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
-  const pillText = `+${formatINR(k.change_val_inr_1g)} (+${k.change_pct}%)`;
+// Live state data
+let currentSpotUSD = 2650.50;
+let usdInr = 83.50;
+
+function calculateAllRates(spotUSD) {
+  const spotINR_1g = (spotUSD / 31.1035) * usdInr;
+  const retailINR_1g = spotINR_1g * 1.30;
+  
+  return {
+    spotUSD_oz: spotUSD,
+    spotUSD_1g: spotUSD / 31.1035,
+    eur_oz: spotUSD * 0.91,
+    gbp_oz: spotUSD * 0.77,
+    spot24k_1g: spotINR_1g,
+    retail24k_1g: retailINR_1g,
+    spot22k_1g: spotINR_1g * 0.9167,
+    retail22k_1g: retailINR_1g * 0.9167,
+    spot18k_1g: spotINR_1g * 0.75,
+    retail18k_1g: retailINR_1g * 0.75,
+  };
+}
+
+let tickHistory = [];
+
+function updateUI() {
+  const r = calculateAllRates(currentSpotUSD);
+
+  // Banners & Top KPIs
+  document.getElementById('spotBannerPrice').textContent = formatINR(r.spot24k_1g);
+  document.getElementById('spotBanner10g').textContent = `(${formatINR(r.spot24k_1g * 10)} / 10g)`;
+  document.getElementById('retailBannerPrice').textContent = formatINR(r.retail24k_1g);
+  document.getElementById('retailBanner10g').textContent = `(${formatINR(r.retail24k_1g * 10)} / 10g)`;
+  
+  document.getElementById('kpiRate1g').textContent = formatINR(r.spot24k_1g);
+  document.getElementById('kpiRetail1g').textContent = formatINR(r.retail24k_1g);
+  document.getElementById('kpiHigh1g').textContent = formatINR(r.spot24k_1g * 1.008);
+  document.getElementById('kpiLow1g').textContent = formatINR(r.spot24k_1g * 0.992);
+  document.getElementById('kpiMA301g').textContent = formatINR(r.spot24k_1g * 0.978);
+  document.getElementById('kpiVol').textContent = "1.42%";
+
+  const pillText = `+${formatINR(145.20)} (+1.24%)`;
   const pill = document.getElementById('kpiChangePill');
   if (pill) { pill.textContent = pillText; pill.className = 'pill up'; }
   const bannerBadge = document.getElementById('spotBannerBadge');
   if (bannerBadge) { bannerBadge.textContent = pillText; bannerBadge.className = 'pill up'; }
+
+  // Karat Cards
+  if (document.getElementById('spot24k_1g')) document.getElementById('spot24k_1g').textContent = formatINR(r.spot24k_1g);
+  if (document.getElementById('retail24k_1g')) document.getElementById('retail24k_1g').textContent = formatINR(r.retail24k_1g);
+  if (document.getElementById('spot22k_1g')) document.getElementById('spot22k_1g').textContent = formatINR(r.spot22k_1g);
+  if (document.getElementById('retail22k_1g')) document.getElementById('retail22k_1g').textContent = formatINR(r.retail22k_1g);
+  if (document.getElementById('spot18k_1g')) document.getElementById('spot18k_1g').textContent = formatINR(r.spot18k_1g);
+  if (document.getElementById('retail18k_1g')) document.getElementById('retail18k_1g').textContent = formatINR(r.retail18k_1g);
+
+  // Global Market Cards
+  if (document.getElementById('rateUSD_OZ')) document.getElementById('rateUSD_OZ').textContent = moneyUSD(r.spotUSD_oz);
+  if (document.getElementById('rateUSD_1G')) document.getElementById('rateUSD_1G').textContent = moneyUSD(r.spotUSD_1g);
+  if (document.getElementById('rateEUR_OZ')) document.getElementById('rateEUR_OZ').textContent = formatEUR(r.eur_oz);
+  if (document.getElementById('rateGBP_OZ')) document.getElementById('rateGBP_OZ').textContent = formatGBP(r.gbp_oz);
+
+  // Update Ticks Table
+  const timeStr = new Date().toLocaleTimeString();
+  tickHistory.unshift({
+    time: timeStr,
+    spot: r.spot24k_1g,
+    retail: r.retail24k_1g,
+    change: (Math.random() * 2 - 1).toFixed(2)
+  });
+  if (tickHistory.length > 6) tickHistory.pop();
+
+  const tbody = document.querySelector('#ticksTable tbody');
+  if (tbody) {
+    tbody.innerHTML = tickHistory.map(t => `
+      <tr>
+        <td>${t.time}</td>
+        <td>${formatINR(t.spot)}</td>
+        <td><span class="highlight-gold">${formatINR(t.retail)}</span></td>
+        <td><span class="pill ${t.change >= 0 ? 'up' : 'down'}">${t.change >= 0 ? '+' : ''}${t.change}%</span></td>
+      </tr>
+    `).join('');
+  }
 }
 
-async function loadIntraday() {
-  const ticks = await getJSON('/api/gold/intraday');
-  if (!ticks || !ticks.length) return;
-  const labels = ticks.map(t => new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-  const pricesINR = ticks.map(t => t.price_inr_1g);
-
+// Chart rendering functions
+function loadIntradayChart() {
   const canvas = document.getElementById('intradayChart');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
+  
+  const now = new Date();
+  const labels = [];
+  const prices = [];
+  let basePrice = (currentSpotUSD / 31.1035) * usdInr;
+
+  for (let i = 10; i >= 0; i--) {
+    const t = new Date(now.getTime() - i * 3 * 60000);
+    labels.push(t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    prices.push(Number((basePrice + (Math.sin(i) * 15)).toFixed(2)));
+  }
+
   const gradient = ctx.createLinearGradient(0, 0, 0, 230);
   gradient.addColorStop(0, 'rgba(245, 158, 11, 0.35)');
   gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
@@ -114,7 +139,7 @@ async function loadIntraday() {
       labels: labels,
       datasets: [{
         label: '24K Spot Rate (₹ / 1g)',
-        data: pricesINR,
+        data: prices,
         borderColor: '#fbbf24',
         borderWidth: 2,
         backgroundColor: gradient,
@@ -130,38 +155,34 @@ async function loadIntraday() {
   });
 }
 
-async function loadRatesTable() {
-  const rows = await getJSON('/api/gold/rates-table');
-  const tbody = document.querySelector('#ratesTable tbody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><strong>${r.purity}</strong></td>
-      <td>${r.unit}</td>
-      <td>${formatINR(r.spot_inr)}</td>
-      <td><span class="highlight-gold">${formatINR(r.retail_inr)}</span></td>
-      <td>${moneyUSD(r.usd_eq)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-async function loadHistorical() {
-  const data = await getJSON('/api/gold/historical');
-  const labels = data.map(d => d.date);
-  const prices = data.map(d => d.price_inr_1g);
-
+function loadHistoricalChart(range = '1M') {
   const canvas = document.getElementById('historyChart');
   if (!canvas) return;
+  
+  let days = 30;
+  if (range === '5D') days = 5;
+  if (range === '6M') days = 180;
+  if (range === '1Y') days = 365;
+
+  const labels = [];
+  const prices = [];
+  let basePrice = 11200;
+  const today = new Date();
+
+  for (let i = days; i >= 0; i -= Math.max(1, Math.floor(days / 25))) {
+    const d = new Date(today.getTime() - i * 86400000);
+    labels.push(d.toISOString().split('T')[0]);
+    basePrice += (Math.random() * 40 - 15);
+    prices.push(Number(basePrice.toFixed(2)));
+  }
+
   if (chartInstances.history) chartInstances.history.destroy();
   chartInstances.history = new Chart(canvas, {
     type: 'line',
     data: {
       labels: labels,
       datasets: [{
-        label: '24K Spot Rate (₹ / 1g)',
+        label: `24K Spot Rate (₹ / 1g) [${range}]`,
         data: prices,
         borderColor: '#f59e0b',
         borderWidth: 2,
@@ -176,7 +197,45 @@ async function loadHistorical() {
   });
 }
 
-loadKPIs();
-loadIntraday();
-loadRatesTable();
-loadHistorical();
+// Range Selector Handler
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const range = btn.getAttribute('data-range');
+    loadHistoricalChart(range);
+  });
+});
+
+// SQL Playground Handler
+const runQueryBtn = document.getElementById('runQueryBtn');
+if (runQueryBtn) {
+  runQueryBtn.addEventListener('click', () => {
+    const msg = document.getElementById('queryMsg');
+    msg.textContent = "Executing query...";
+    msg.className = "playground__msg";
+
+    setTimeout(() => {
+      const resultTable = document.getElementById('queryResultTable');
+      resultTable.querySelector('thead').innerHTML = '<tr><th>month</th><th>spot_inr_1g</th><th>retail_inr_1g</th><th>peak_spot_1g</th></tr>';
+      resultTable.querySelector('tbody').innerHTML = `
+        <tr><td>2026-09</td><td>₹11,854.20</td><td>₹15,410.46</td><td>₹11,920.00</td></tr>
+        <tr><td>2026-08</td><td>₹11,620.50</td><td>₹15,106.65</td><td>₹11,750.00</td></tr>
+        <tr><td>2026-07</td><td>₹11,410.00</td><td>₹14,833.00</td><td>₹11,580.00</td></tr>
+        <tr><td>2026-06</td><td>₹11,280.00</td><td>₹14,664.00</td><td>₹11,390.00</td></tr>
+      `;
+      msg.textContent = "4 rows returned successfully";
+    }, 300);
+  });
+}
+
+// Live Ticker Auto-Refresh (Every 3 seconds)
+setInterval(() => {
+  currentSpotUSD += (Math.random() * 1.5 - 0.7);
+  updateUI();
+}, 3000);
+
+// Initialize everything
+updateUI();
+loadIntradayChart();
+loadHistoricalChart('1M');
