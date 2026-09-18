@@ -8,7 +8,6 @@ if (typeof Chart !== 'undefined') {
 
 const gridline = { color: 'rgba(255,255,255,0.04)', drawTicks: false };
 let chartInstances = {};
-let currentRange = '1M';
 
 function formatINR(v) {
   if (v === undefined || v === null) return '₹0.00';
@@ -28,39 +27,49 @@ function formatGBP(v) {
   if (v === undefined || v === null) return '£' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Live state data
-let currentSpotUSD = 2650.50;
-let usdInr = 83.50;
+// Baseline Spot Rate: 24K Spot is ~₹11,854.20/g, 24K Indian Retail (incl. Customs Duty & GST) is ~₹15,410.46/g (15k something)
+let baseSpotINR_1g = 11854.20;
 
-function calculateAllRates(spotUSD) {
-  const spotINR_1g = (spotUSD / 31.1035) * usdInr;
-  const retailINR_1g = spotINR_1g * 1.30;
+function getCalculatedRates(spotINR1g) {
+  const retail24k_1g = spotINR1g * 1.30; // 15% Customs + 3% GST + Jeweler margin factor
+  const spotUSD_oz = (spotINR1g * 31.1035) / 83.50 * 1.666; // Scaled to global market quote
   
   return {
-    spotUSD_oz: spotUSD,
-    spotUSD_1g: spotUSD / 31.1035,
-    eur_oz: spotUSD * 0.91,
-    gbp_oz: spotUSD * 0.77,
-    spot24k_1g: spotINR_1g,
-    retail24k_1g: retailINR_1g,
-    spot22k_1g: spotINR_1g * 0.9167,
-    retail22k_1g: retailINR_1g * 0.9167,
-    spot18k_1g: spotINR_1g * 0.75,
-    retail18k_1g: retailINR_1g * 0.75,
+    spot24k_1g: spotINR1g,
+    retail24k_1g: retail24k_1g,
+    spot24k_10g: spotINR1g * 10,
+    retail24k_10g: retail24k_1g * 10,
+    
+    spot22k_1g: spotINR1g * 0.9167,
+    retail22k_1g: retail24k_1g * 0.9167,
+    spot22k_10g: spotINR1g * 0.9167 * 10,
+    retail22k_10g: retail24k_1g * 0.9167 * 10,
+    
+    spot18k_1g: spotINR1g * 0.75,
+    retail18k_1g: retail24k_1g * 0.75,
+    spot18k_10g: spotINR1g * 0.75 * 10,
+    retail18k_10g: retail24k_1g * 0.75 * 10,
+
+    spotUSD_oz: 2650.50,
+    spotUSD_1g: 85.22,
+    eur_oz: 2420.10,
+    gbp_oz: 2045.30
   };
 }
 
 let tickHistory = [];
 
 function updateUI() {
-  const r = calculateAllRates(currentSpotUSD);
+  const r = getCalculatedRates(baseSpotINR_1g);
 
-  // Banners & Top KPIs
+  // Top Banners
   document.getElementById('spotBannerPrice').textContent = formatINR(r.spot24k_1g);
-  document.getElementById('spotBanner10g').textContent = `(${formatINR(r.spot24k_1g * 10)} / 10g)`;
-  document.getElementById('retailBannerPrice').textContent = formatINR(r.retail24k_1g);
-  document.getElementById('retailBanner10g').textContent = `(${formatINR(r.retail24k_1g * 10)} / 10g)`;
+  document.getElementById('spotBanner10g').textContent = `(${formatINR(r.spot24k_10g)} / 10g)`;
   
+  document.getElementById('retailBannerPrice').textContent = formatINR(r.retail24k_1g);
+  document.getElementById('retailBanner10g').textContent = `(${formatINR(r.retail24k_10g)} / 10g)`;
+
+  // Top KPI Row
   document.getElementById('kpiRate1g').textContent = formatINR(r.spot24k_1g);
   document.getElementById('kpiRetail1g').textContent = formatINR(r.retail24k_1g);
   document.getElementById('kpiHigh1g').textContent = formatINR(r.spot24k_1g * 1.008);
@@ -74,7 +83,7 @@ function updateUI() {
   const bannerBadge = document.getElementById('spotBannerBadge');
   if (bannerBadge) { bannerBadge.textContent = pillText; bannerBadge.className = 'pill up'; }
 
-  // Karat Cards
+  // Karat Cards Panel
   if (document.getElementById('spot24k_1g')) document.getElementById('spot24k_1g').textContent = formatINR(r.spot24k_1g);
   if (document.getElementById('retail24k_1g')) document.getElementById('retail24k_1g').textContent = formatINR(r.retail24k_1g);
   if (document.getElementById('spot22k_1g')) document.getElementById('spot22k_1g').textContent = formatINR(r.spot22k_1g);
@@ -82,21 +91,25 @@ function updateUI() {
   if (document.getElementById('spot18k_1g')) document.getElementById('spot18k_1g').textContent = formatINR(r.spot18k_1g);
   if (document.getElementById('retail18k_1g')) document.getElementById('retail18k_1g').textContent = formatINR(r.retail18k_1g);
 
-  // Global Market Cards
+  // Global Market Cards Panel
   if (document.getElementById('rateUSD_OZ')) document.getElementById('rateUSD_OZ').textContent = moneyUSD(r.spotUSD_oz);
   if (document.getElementById('rateUSD_1G')) document.getElementById('rateUSD_1G').textContent = moneyUSD(r.spotUSD_1g);
   if (document.getElementById('rateEUR_OZ')) document.getElementById('rateEUR_OZ').textContent = formatEUR(r.eur_oz);
   if (document.getElementById('rateGBP_OZ')) document.getElementById('rateGBP_OZ').textContent = formatGBP(r.gbp_oz);
 
-  // Update Ticks Table
-  const timeStr = new Date().toLocaleTimeString();
-  tickHistory.unshift({
-    time: timeStr,
-    spot: r.spot24k_1g,
-    retail: r.retail24k_1g,
-    change: (Math.random() * 2 - 1).toFixed(2)
-  });
-  if (tickHistory.length > 6) tickHistory.pop();
+  // Recent Market Ticks Table
+  const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const changePct = (Math.random() * 0.4 - 0.2).toFixed(2);
+  
+  if (tickHistory.length === 0 || tickHistory[0].time !== timeStr) {
+    tickHistory.unshift({
+      time: timeStr,
+      spot: r.spot24k_1g,
+      retail: r.retail24k_1g,
+      change: changePct
+    });
+    if (tickHistory.length > 5) tickHistory.pop();
+  }
 
   const tbody = document.querySelector('#ticksTable tbody');
   if (tbody) {
@@ -111,7 +124,7 @@ function updateUI() {
   }
 }
 
-// Chart rendering functions
+// Intraday Chart
 function loadIntradayChart() {
   const canvas = document.getElementById('intradayChart');
   if (!canvas) return;
@@ -120,12 +133,11 @@ function loadIntradayChart() {
   const now = new Date();
   const labels = [];
   const prices = [];
-  let basePrice = (currentSpotUSD / 31.1035) * usdInr;
 
-  for (let i = 10; i >= 0; i--) {
-    const t = new Date(now.getTime() - i * 3 * 60000);
+  for (let i = 12; i >= 0; i--) {
+    const t = new Date(now.getTime() - i * 5 * 60000);
     labels.push(t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    prices.push(Number((basePrice + (Math.sin(i) * 15)).toFixed(2)));
+    prices.push(Number((baseSpotINR_1g + Math.sin(i) * 35).toFixed(2)));
   }
 
   const gradient = ctx.createLinearGradient(0, 0, 0, 230);
@@ -155,6 +167,7 @@ function loadIntradayChart() {
   });
 }
 
+// Historical Chart
 function loadHistoricalChart(range = '1M') {
   const canvas = document.getElementById('historyChart');
   if (!canvas) return;
@@ -169,10 +182,10 @@ function loadHistoricalChart(range = '1M') {
   let basePrice = 11200;
   const today = new Date();
 
-  for (let i = days; i >= 0; i -= Math.max(1, Math.floor(days / 25))) {
+  for (let i = days; i >= 0; i -= Math.max(1, Math.floor(days / 20))) {
     const d = new Date(today.getTime() - i * 86400000);
     labels.push(d.toISOString().split('T')[0]);
-    basePrice += (Math.random() * 40 - 15);
+    basePrice += (Math.random() * 45 - 15);
     prices.push(Number(basePrice.toFixed(2)));
   }
 
@@ -197,7 +210,7 @@ function loadHistoricalChart(range = '1M') {
   });
 }
 
-// Range Selector Handler
+// Range selector handlers
 document.querySelectorAll('.range-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
@@ -225,17 +238,17 @@ if (runQueryBtn) {
         <tr><td>2026-06</td><td>₹11,280.00</td><td>₹14,664.00</td><td>₹11,390.00</td></tr>
       `;
       msg.textContent = "4 rows returned successfully";
-    }, 300);
+    }, 200);
   });
 }
 
-// Live Ticker Auto-Refresh (Every 3 seconds)
+// Auto-tick simulation
 setInterval(() => {
-  currentSpotUSD += (Math.random() * 1.5 - 0.7);
+  baseSpotINR_1g += (Math.random() * 4 - 2);
   updateUI();
-}, 3000);
+}, 4000);
 
-// Initialize everything
+// Initial Load
 updateUI();
 loadIntradayChart();
 loadHistoricalChart('1M');
