@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PRISM Gold — Live Gold Rate &amp; Analytics (Spot &amp; Indian Retail)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="logo">
+    <h1>PRISM GOLD INDIA</h1>
+    <span class="live-badge"><span class="pulse-dot"></span> LIVE XAU/USD FEED</span>
+  </div>
+  <p class="eyebrow">Real-Time Live Market Feed • GoldAPI &amp; Google / Yahoo Finance API</p>
+  
+  <div class="banner-group">
+    <div class="spot-banner" id="spotBanner">
+      <span class="banner-title">XAU Live Spot Rate</span>
+      <span class="spot-banner__price" id="spotBannerPrice">₹0.00</span>
+      <span class="spot-banner__unit">/ 1 Gram (24K)</span>
+      <span class="spot-banner__gram" id="spotBanner10g">(₹0.00 / 10g)</span>
+      <span class="badge" id="spotBannerBadge">—</span>
+    </div>
+    
+    <div class="spot-banner spot-banner--retail" id="retailBanner">
+      <span class="banner-title">Indian Retail Rate (incl. 15% Duty &amp; GST)</span>
+      <span class="spot-banner__price" id="retailBannerPrice">₹0.00</span>
+      <span class="spot-banner__unit">/ 1 Gram (24K)</span>
+      <span class="spot-banner__gram" id="retailBanner10g">(₹0.00 / 10g)</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- KPI ROW -->
+  <section class="kpis" id="kpiRow">
+    <div class="kpi">
+      <span class="kpi__label">Live Spot Rate / 1 Gram</span>
+      <div class="kpi__val-row">
+        <span class="kpi__value" id="kpiRate1g">—</span>
+        <span class="pill" id="kpiChangePill">—</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <span class="kpi__label">Indian Retail / 1 Gram (24K)</span>
+      <span class="kpi__value" id="kpiRetail1g">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi__label">24h High / Low (Spot / 1g)</span>
+      <div class="kpi__subrow">
+        <span class="kpi__high" id="kpiHigh1g">—</span>
+        <span class="kpi__sep">/</span>
+        <span class="kpi__low" id="kpiLow1g">—</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <span class="kpi__label">30-Day Moving Avg (Spot / 1g)</span>
+      <span class="kpi__value" id="kpiMA301g">—</span>
+    </div>
+    <div class="kpi">
+      <span class="kpi__label">30-Day Volatility</span>
+      <span class="kpi__value" id="kpiVol">—</span>
+    </div>
+  </section>
+
+  <!-- MAIN CHARTS GRID -->
+  <section class="grid">
+    
+    <!-- Intraday Live Chart -->
+    <div class="panel panel--wide">
+      <div class="panel__header-row">
+        <div>
+          <h2>Real-Time Live Intraday Chart (₹ / 1 Gram 24K)</h2>
+          <p class="panel__sub">Live tick feed recorded in <code>gold_prices</code> • Auto-refreshes every 5 seconds</p>
+        </div>
+        <div class="live-status">
+          <span class="pulse-dot"></span> Live Tick Feed
+        </div>
+      </div>
+      <div class="chart-frame"><canvas id="intradayChart"></canvas></div>
+    </div>
+
+    <!-- Historical Chart with Range Buttons -->
+    <div class="panel panel--wide">
+      <div class="panel__header-row">
+        <div>
+          <h2>Historical Gold Price Trend (₹ / 1 Gram 24K)</h2>
+          <p class="panel__sub">1-Year daily OHLC history stored in <code>gold_daily</code></p>
+        </div>
+        <div class="range-selector">
+          <button class="range-btn" data-range="5D">5D</button>
+          <button class="range-btn active" data-range="1M">1M</button>
+          <button class="range-btn" data-range="6M">6M</button>
+          <button class="range-btn" data-range="1Y">1Y</button>
+        </div>
+      </div>
+      <div class="chart-frame chart-frame--tall"><canvas id="historyChart"></canvas></div>
+    </div>
+
+    <!-- Karat & Multi-Weight Indian Gold Rates -->
+    <div class="panel">
+      <h2>Gold Rates by Karat &amp; Purity (INR)</h2>
+      <p class="panel__sub">Spot vs Indian Retail (incl. Customs Duty &amp; GST)</p>
+      <div class="currency-grid">
+        <div class="curr-card">
+          <span class="curr-card__label">👑 24K Spot / 1 Gram</span>
+          <span class="curr-card__value" id="spot24k_1g">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">👑 24K Retail / 1 Gram</span>
+          <span class="curr-card__value" id="retail24k_1g">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">✨ 22K Spot / 1 Gram</span>
+          <span class="curr-card__value" id="spot22k_1g">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">✨ 22K Retail / 1 Gram (Jewelry)</span>
+          <span class="curr-card__value" id="retail22k_1g">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">💎 18K Spot / 1 Gram</span>
+          <span class="curr-card__value" id="spot18k_1g">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">💎 18K Retail / 1 Gram</span>
+          <span class="curr-card__value" id="retail18k_1g">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- International & Troy Oz Rates -->
+    <div class="panel">
+      <h2>Global Market &amp; Currency Rates</h2>
+      <p class="panel__sub">Live international XAU/USD spot rates</p>
+      <div class="currency-grid">
+        <div class="curr-card">
+          <span class="curr-card__label">🇺🇸 USD / Troy Oz</span>
+          <span class="curr-card__value" id="rateUSD_OZ">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">🇺🇸 USD / 1 Gram</span>
+          <span class="curr-card__value" id="rateUSD_1G">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">🇪🇺 EUR / Troy Oz</span>
+          <span class="curr-card__value" id="rateEUR_OZ">—</span>
+        </div>
+        <div class="curr-card">
+          <span class="curr-card__label">🇬🇧 GBP / Troy Oz</span>
+          <span class="curr-card__value" id="rateGBP_OZ">—</span>
+        </div>
+      </div>
+      <div class="recent-ticks-block">
+        <h3 class="sub-heading">Recent Recorded Market Ticks</h3>
+        <div class="table-scroll">
+          <table class="data-table" id="ticksTable">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Spot (₹ / 1g)</th>
+                <th>Retail (₹ / 1g)</th>
+                <th>Change</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- SQL PLAYGROUND -->
+  <section class="panel panel--full">
+    <h2>SQL Playground — Live Gold Analytics</h2>
+    <p class="panel__sub">Run real SQL queries against live tick records (<code>gold_prices</code>) or 1-year history (<code>gold_daily</code>)</p>
+    <textarea id="sqlInput" rows="4" spellcheck="false">SELECT strftime('%Y-%m', date) AS month,
+       ROUND(AVG(close_price / 31.1035 * 83.50), 2) AS spot_inr_1g,
+       ROUND(AVG(close_price / 31.1035 * 83.50 * 1.15), 2) AS retail_inr_1g,
+       ROUND(MAX(high_price / 31.1035 * 83.50), 2)  AS peak_spot_1g
+FROM gold_daily
+GROUP BY month
+ORDER BY month DESC;</textarea>
+    <div class="playground__actions">
+      <button class="btn btn--gold" id="runQueryBtn" type="button">Run SQL query</button>
+      <span class="playground__msg" id="queryMsg"></span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table" id="queryResultTable"><thead></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+</main>
+
+<script src="chart.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
